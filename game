@@ -88,20 +88,12 @@ bool isCorrectGuess(const std::string& word, const std::string& guess, std::stri
             feedback += std::toupper(lowercaseGuess[i]); // Correct letter in the correct position
             matchedPositions.insert(i); // Mark the position as matched
         }
-    }
 
-    for (size_t i = 0; i < lowercaseWord.length(); ++i) {
-        if (matchedPositions.count(i) > 0) {
-            continue; // Skip this position as it was already matched
-        }
-
-    
-
+ 
         bool letterMatched = false;
         for (size_t j = 0; j < lowercaseWord.length()+ 1; ++j) {
             if (j != i && lowercaseWord[j] == lowercaseGuess[i] && matchedPositions.count(j) == 0) {
                 letterMatched = true;
-                matchedPositions.insert(j);
                 break;
             }
         }
