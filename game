@@ -1,0 +1,279 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <cstdlib>
+#include <ctime>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <sstream>
+#include <unordered_set>
+
+using namespace std;
+
+int getDay(const std::tm* tmObj) { return tmObj->tm_mday; }
+int getMonth(const std::tm* tmObj) { return tmObj->tm_mon + 1; }
+int getYear(const std::tm* tmObj) { return tmObj->tm_year + 1900; }
+bool wordOfTheDayGuessed = false;
+const int WORD_LENGTH = 10;
+
+bool hasWordOfTheDayBeenGuessedToday(const std::string& guessedWord)
+{
+    std::ifstream file("guessedWords.txt");
+    std::string line;
+
+    while (std::getline(file, line))
+    {
+        if (line == guessedWord)
+        {
+            file.close();
+            return true;
+        }
+    }
+
+    file.close();
+    return false;
+}
+
+string getRandomWordFromFile(const string& filename) {
+    ifstream file(filename);
+    string word;
+    int lineCount = 0;
+
+    while (getline(file, word))
+        ++lineCount;
+
+    file.clear();
+    file.seekg(0);
+
+    int randomLine = rand() % lineCount;
+    int currentLine = 0;
+
+    while (getline(file, word)) {
+        if (currentLine == randomLine) {
+            file.close();
+            return word;
+        }
+        ++currentLine;
+    }
+
+    file.close();
+    return "";
+}
+
+string stringToUpper(const string& str) {
+    string result = str;
+    transform(result.begin(), result.end(), result.begin(), ::toupper);
+    return result;
+}
+
+bool isCorrectGuess(const std::string& word, const std::string& guess, std::string& feedback) {
+    if (word.length() != guess.length())
+        return false;
+
+    std::string lowercaseWord = word;
+    std::string lowercaseGuess = guess;
+
+    // Convert both the actual word and the guessed word to lowercase
+    std::transform(lowercaseWord.begin(), lowercaseWord.end(), lowercaseWord.begin(), ::tolower);
+    std::transform(lowercaseGuess.begin(), lowercaseGuess.end(), lowercaseGuess.begin(), ::tolower);
+
+    feedback = "";
+
+    bool correct = true;
+    std::unordered_set<size_t> matchedPositions;
+
+    for (size_t i = 0; i < lowercaseWord.length(); ++i) {
+        if (lowercaseWord[i] == lowercaseGuess[i]) {
+            feedback += std::toupper(lowercaseGuess[i]); // Correct letter in the correct position
+            matchedPositions.insert(i); // Mark the position as matched
+        }
+    }
+
+    for (size_t i = 0; i < lowercaseWord.length(); ++i) {
+        if (matchedPositions.count(i) > 0) {
+            continue; // Skip this position as it was already matched
+        }
+
+    
+
+        bool letterMatched = false;
+        for (size_t j = 0; j < lowercaseWord.length()+ 1; ++j) {
+            if (j != i && lowercaseWord[j] == lowercaseGuess[i] && matchedPositions.count(j) == 0) {
+                letterMatched = true;
+                matchedPositions.insert(j);
+                break;
+            }
+        }
+
+        if (letterMatched) {
+            feedback += std::tolower(lowercaseGuess[i]); // Correct letter in the wrong position
+            correct = false;
+        }
+        else {
+            feedback += '*'; // Incorrect letter
+            correct = false;
+        }
+    }
+
+    return correct;
+}
+
+std::string getWordOfTheDay(const std::tm* tmObj)
+{
+    int dayOfYear = tmObj->tm_yday + 1;
+
+    std::ifstream file("wordOfTheDay.txt");
+    std::string line;
+
+    // Read each line in the file
+    while (std::getline(file, line))
+    {
+        int day;
+        std::string word;
+
+        // Create istringstream object to parse the line
+        std::istringstream iss(line);
+
+        // Parse the line to extract day number and word
+        if (iss >> day >> word)
+        {
+            if (day == dayOfYear)
+            {
+                file.close();
+                return word;
+            }
+        }
+    }
+
+    file.close();
+    return "No word found for the day";
+}
+
+void saveWordOfTheDayGuessedDate()
+{
+    std::time_t t;
+    std::time(&t);
+    std::tm now;
+    localtime_s(&now, &t);
+
+    int day = getDay(&now);
+    int month = getMonth(&now);
+    int year = getYear(&now);
+
+    std::ofstream file("lastGuessedDate.txt");
+    file << day << " " << month << " " << year << std::endl;
+    file.close();
+}
+
+void saveGuessedWordOfTheDay(const std::string& guessedWord, const std::string& wordOfTheDay)
+{
+    std::ofstream file("guessedWords.txt", std::ios_base::app); // Open in append mode
+    file << wordOfTheDay << std::endl;
+    file.close();
+}
+
+
+int main() {
+    std::time_t t;
+    std::time(&t);
+    std::tm now;
+    localtime_s(&now, &t);
+
+    bool wordOfTheDayGuessed = false; // Flag to track if the Word of the Day has been guessed
+
+    std::cout << "Current Date: " << getDay(&now) << "-"
+        << getMonth(&now) << "-" << getYear(&now) << std::endl;
+
+    int choice;
+    do {
+        cout << "1. Word of the Day" << endl;
+        cout << "2. Random word" << endl;
+        cout << "0. Exit" << endl;
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        string wordToGuess, userGuess;
+        string feedback;
+        int attempts = 0;
+        const string wordsFileName = "words.txt";
+        const int maxAttempts = 5;
+
+        switch (choice) {
+        case 1: // Word of the Day
+            wordToGuess = getWordOfTheDay(&now);
+
+            // Check if the word of the day has already been guessed today
+            if (hasWordOfTheDayBeenGuessedToday(wordToGuess)) {
+                cout << "The Word of the Day has already been guessed today. Choose another option." << endl;
+                continue;
+            }
+
+            wordOfTheDayGuessed = false; // Reset the flag since the Word of the Day is not yet guessed
+
+            cout << "Word of the Day: " << wordToGuess << endl;
+            break;
+        case 2: // Random word
+            wordToGuess = getRandomWordFromFile(wordsFileName);
+            cout << "Random word: " << wordToGuess << endl;
+            if (wordToGuess.empty()) {
+                cout << "Error: Could not retrieve a random word. Please make sure the file contains words." << endl;
+                continue; // Go back to the menu to choose another option
+            }
+            break;
+        case 0: // Exit
+            return 0;
+        default:
+            cout << "Invalid choice. Please try again." << endl;
+            continue;
+        }
+
+        cout << "Welcome to the Word Guessing Game!" << endl;
+        cout << "Try to guess the word with " << wordToGuess.length() << " letters." << endl;
+
+        do {
+            cout << "Enter your guess (Attempt " << attempts + 1 << "/" << maxAttempts << "): ";
+            cin >> userGuess;
+
+            transform(userGuess.begin(), userGuess.end(), userGuess.begin(), ::toupper);
+
+            if (wordToGuess.length() != userGuess.length()) {
+                cout << "Incorrect guess. The word should have " << wordToGuess.length() << " letters." << endl;
+                continue;
+            }
+            bool correct = isCorrectGuess(wordToGuess, userGuess, feedback);
+            if (correct) {
+                cout << "Congratulations! You guessed the word: " << stringToUpper(wordToGuess) << endl;
+                cout << "Number of attempts: " << attempts + 1 << endl;
+                saveGuessedWordOfTheDay(userGuess, wordToGuess);
+                break; // No need to play again if the word is guessed correctly
+            }
+            else {
+                cout << "Incorrect guess. Feedback: " << feedback << endl;
+                ++attempts;
+                if (attempts >= maxAttempts) {
+                    if (!wordOfTheDayGuessed) {
+                        cout << "Out of attempts! The word was: " << stringToUpper(wordToGuess) << endl;
+                    }
+                    break; // No need to play again if out of attempts
+                }
+            }
+        } while (true);
+
+        // Ask to play again only if the Word of the Day was not guessed
+        if (!wordOfTheDayGuessed) {
+            char playAgainChoice;
+            cout << "Play again? (y/n): ";
+            cin >> playAgainChoice;
+            if (playAgainChoice != 'y' && playAgainChoice != 'Y') {
+                break; // Exit the loop if the player doesn't want to play again
+            }
+        }
+        else {
+            cout << "Word of the Day was guessed! You can try again later." << endl;
+            break; // Exit the loop if the Word of the Day is already guessed
+        }
+    } while (true);
+
+    return 0;
+}
